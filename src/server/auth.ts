@@ -6,7 +6,7 @@ import { env } from "~/env";
 import { db } from "~/server/db";
 import { profiles, sessions, users } from "~/server/db/schema/tables";
 
-export function authenticate(): never {
+export function authenticate(): never { 
   redirect(
     new URL(
       "?" +
@@ -42,7 +42,7 @@ export async function getSession<
     with: include,
   });
 
-  return session ?? null;
+  return session ?? null; 
 }
 
 /**
