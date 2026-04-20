@@ -43,6 +43,10 @@ const relations = defineRelations(tables, (r) => ({
       from: [r.posts.authorId, r.posts.accessRank],
       to: [r.permissionGroups.organizationProfileId, r.permissionGroups.rank],
     }),
+    collections: r.many.collectionPosts({
+      from: r.posts.id,
+      to: r.collectionPosts.postId,
+    }),
   },
   postAttachments: {
     post: r.one.posts({
@@ -94,6 +98,10 @@ const relations = defineRelations(tables, (r) => ({
         r.organizations.organizationProfileId,
       ),
     }),
+    collections: r.many.collections({
+      from: r.users.profileId,
+      to: r.collections.userProfileId,
+    }),
   },
   organizations: {
     profile: r.one.profiles({
@@ -143,6 +151,46 @@ const relations = defineRelations(tables, (r) => ({
     user: r.one.users({
       from: r.sessions.userProfileId,
       to: r.users.profileId,
+      optional: false,
+    }),
+  },
+  uploads: {
+    owner: r.one.profiles({
+      from: r.uploads.ownerId,
+      to: r.profiles.id,
+    }),
+    attachedProfile: r.one.profiles({
+      from: [r.uploads.ownerId, r.uploads.contentHash],
+      to: [r.profiles.id, r.profiles.image],
+    }),
+    attachedPost: r.many.posts({
+      from: [
+        r.uploads.ownerId.through(r.postAttachments.ownerId),
+        r.uploads.contentHash.through(r.postAttachments.contentHash),
+      ],
+      to: r.posts.id.through(r.postAttachments.postId),
+    }),
+  },
+  collections: {
+    user: r.one.users({
+      from: r.collections.userProfileId,
+      to: r.users.profileId,
+      optional: false,
+    }),
+    posts: r.many.collectionPosts({
+      from: r.collections.id,
+      to: r.collectionPosts.collectionId,
+    }),
+  },
+  collectionPosts: {
+    collection: r.one.collections({
+      from: r.collectionPosts.collectionId,
+      to: r.collections.id,
+      optional: false,
+    }),
+    post: r.one.posts({
+      from: r.collectionPosts.postId,
+      to: r.posts.id,
       optional: false,
     }),
   },

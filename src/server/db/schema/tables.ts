@@ -3,6 +3,7 @@ import { sql, type SQL } from "drizzle-orm";
 import {
   foreignKey,
   index,
+  MySqlColumn,
   mysqlEnum,
   mysqlTable,
   primaryKey,
@@ -96,7 +97,7 @@ export const postAttachments = mysqlTable(
       .references(() => posts.id),
   }),
   (t) => [
-    primaryKey({ columns: [t.ownerId, t.contentHash] }),
+    primaryKey({ columns: [t.ownerId, t.contentHash, t.postId] }),
     foreignKey({
       columns: [t.ownerId, t.contentHash],
       foreignColumns: [uploads.ownerId, uploads.contentHash],
@@ -225,17 +226,27 @@ export const eventTags = mysqlTable(
   (t) => [primaryKey({ columns: [t.eventId, t.tagId] })],
 );
 
-export const profiles = mysqlTable("profile", (d) => ({
-  id: d.varchar({ length: 255 }).primaryKey().$defaultFn(createId),
-  type: d.mysqlEnum(["user", "organization"]).notNull(),
-  name: d.varchar({ length: 255 }).notNull(),
-  bio: d.text({}),
-  linkedin: d.varchar({ length: 255 }),
-  github: d.varchar({ length: 255 }),
-  personalSite: d.varchar({ length: 255 }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").onUpdateNow(),
-}));
+export const profiles = mysqlTable(
+  "profile",
+  (d) => ({
+    id: d.varchar({ length: 255 }).primaryKey().$defaultFn(createId),
+    image: d.varchar({ length: 255 }),
+    type: d.mysqlEnum(["user", "organization"]).notNull(),
+    name: d.varchar({ length: 255 }).notNull(),
+    bio: d.text({}),
+    linkedin: d.varchar({ length: 255 }),
+    github: d.varchar({ length: 255 }),
+    personalSite: d.varchar({ length: 255 }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").onUpdateNow(),
+  }),
+  (t) => [
+    foreignKey({
+      columns: [t.id, t.image],
+      foreignColumns: [uploads.ownerId, uploads.contentHash],
+    }),
+  ],
+);
 
 export const users = mysqlTable(
   "user",
@@ -246,10 +257,35 @@ export const users = mysqlTable(
       .references(() => profiles.id),
     email: d.varchar({ length: 255 }).notNull(),
     role: d.mysqlEnum(["user", "moderator"]).notNull(),
+    onboardingCompleted: d.boolean().default(false).notNull(),
     createdAt: d.timestamp("created_at").defaultNow().notNull(),
     updatedAt: d.timestamp("updated_at").onUpdateNow(),
   }),
   (t) => [uniqueIndex("email_idx").on(lower(t.email))],
+);
+
+export const userInterests = mysqlTable(
+  "user_interest",
+  (d) => ({
+    userProfileId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => users.profileId, {
+        onUpdate: "cascade",
+        onDelete: "cascade",
+      }),
+    tagId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => tags.id, {
+        onUpdate: "cascade",
+        onDelete: "cascade",
+      }),
+    weight: d.decimal({ precision: 3, scale: 2 }).notNull().default("1.00"),
+    createdAt: d.timestamp().defaultNow().notNull(),
+    updated: d.timestamp().onUpdateNow(),
+  }),
+  (t) => [primaryKey({ columns: [t.userProfileId, t.tagId] })],
 );
 
 export const permissionGroups = mysqlTable(
@@ -327,7 +363,7 @@ export const uploads = mysqlTable(
     ownerId: d
       .varchar({ length: 255 })
       .notNull()
-      .references(() => profiles.id),
+      .references((): MySqlColumn => profiles.id),
     contentHash: d.varchar({ length: 255 }).notNull(),
     bucket: d.varchar({ length: 255 }).notNull(),
     name: d.varchar({ length: 255 }).notNull(),
@@ -341,4 +377,34 @@ export const uploads = mysqlTable(
     index("owner_idx").on(t.ownerId),
     primaryKey({ columns: [t.ownerId, t.contentHash] }),
   ],
+);
+
+export const collections = mysqlTable(
+  "collection",
+  (d) => ({
+    id: d.varchar({ length: 255 }).primaryKey().$defaultFn(createId),
+    userProfileId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => users.profileId, { onDelete: "cascade" }),
+    name: d.varchar({ length: 255 }).notNull(),
+    description: d.text(),
+    createdAt: d.timestamp().defaultNow().notNull(),
+  })
+);
+
+export const collectionPosts = mysqlTable(
+  "collection_post",
+  (d) => ({
+    collectionId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+    postId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    createdAt: d.timestamp().defaultNow().notNull(),
+  }),
+  (t) => [primaryKey({ columns: [t.collectionId, t.postId] })]
 );
